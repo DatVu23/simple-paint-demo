@@ -1,7 +1,8 @@
-import React from 'react';
-import './App.css';
+import React from "react";
+import "./App.css";
+import "@fortawesome/fontawesome-free";
 
-import Canvas from './components/Canvas';
+import Canvas from "./components/Canvas";
 
 function App() {
   return (
@@ -12,4 +13,3 @@ function App() {
 }
 
 export default App;
-

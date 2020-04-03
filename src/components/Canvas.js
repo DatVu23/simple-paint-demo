@@ -1,67 +1,71 @@
 import React from "react";
 import { useSetState } from "../utils/customHooks";
 import styled from "styled-components";
+import { v4 as uuidv4 } from "uuid";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-const deepCopy = input => {
-  const output = Array.isArray(input) ? [] : {};
-
-  for (const key in input) {
-    const value = input[key];
-    output[key] = typeof value === "object" ? deepCopy(value) : value;
-  }
-
-  return output;
-};
+import Toolbar from "./Toolbar";
+import { Button, Input, Label } from "../utils";
+import { deepCopy } from "../utils/functions";
 
 export default function Canvas() {
   const [state, setState] = useSetState({
-    size: 0,
+    prevCanvasWidth: 0,
     canvasWidth: 0,
     canvasHeight: 0,
     canvasMap: [],
     emptyCanvasMap: [],
+    errorMessage: "",
     firstClickCell: null,
     secondClickCell: null,
-    lineMode: true,
-    rectangleMode: false,
-    bucketFillMode: false
+    size: 0,
+    toolMode: {
+      lineMode: true,
+      rectangleMode: false,
+      bucketFillMode: false
+    }
   });
 
   const {
+    prevCanvasWidth,
     canvasWidth,
     canvasHeight,
     canvasMap,
     emptyCanvasMap,
     firstClickCell,
     secondClickCell,
-    lineMode,
-    rectangleMode,
-    bucketFillMode
+    toolMode
   } = state;
   const cellWidth = 40;
   const cellHeight = 40;
 
   const handleChange = e => {
     const { value, name } = e.target;
-    console.log(name);
     setState({ [name]: +value });
   };
 
   const createCanvas = () => {
-    if (canvasWidth && canvasHeight) {
+    if (prevCanvasWidth <= 30 && canvasHeight <= 30) {
+      const canvasWidth = prevCanvasWidth;
       const size = canvasWidth * canvasHeight;
       const canvasMap = [];
       for (let i = 1; i <= size; i++) {
         const x = i > canvasWidth ? i % canvasWidth || canvasWidth : i;
         const y = Math.ceil(i / canvasWidth) || 1;
-        canvasMap.push({ x, y, key: i - 1 });
+        canvasMap.push({ x, y, key: i - 1, group: 0 });
       }
       setState({
         size,
         canvasMap,
+        canvasWidth,
         emptyCanvasMap: deepCopy(canvasMap),
         firstClickCell: null,
         secondClickCell: null
+      });
+    } else {
+      toast.error("The max size of canvas should be 30x30", {
+        containerId: "B"
       });
     }
   };
@@ -76,19 +80,21 @@ export default function Canvas() {
     });
   };
 
-  const drawLineX = difX => {
-    if (difX > 0) {
-      for (let i = 1; i <= difX; i++) {
-        canvasMap[firstClickCell.key + i].value = "X";
-      }
-    } else if (difX < 0) {
+  const drawLineX = (difX, cell) => {
+    if (difX) {
+      const operator = difX > 0 ? "+" : "-";
+
       for (let i = 1; i <= Math.abs(difX); i++) {
-        canvasMap[firstClickCell.key - i].value = "X";
+        canvasMap[eval(`${cell.key} ${operator} ${i}`)].value = "X";
       }
     }
   };
 
-  const drawLineY = (difY, secondClickCell) => {
+  const drawLineY = (difY, difX, firstClickCell, secondClickCell) => {
+    const groupId = uuidv4();
+    const operatorY = difY > 0 ? "-" : "+";
+    const operatorX = difX > 0 ? "-" : "+";
+
     if (difY > 0) {
       for (let i = 1; i < Math.abs(difY); i++) {
         canvasMap[secondClickCell.key - canvasWidth * i].value = "X";
@@ -96,89 +102,165 @@ export default function Canvas() {
     } else if (difY < 0) {
       for (let i = 1; i < Math.abs(difY); i++) {
         canvasMap[secondClickCell.key + canvasWidth * i].value = "X";
+        if (toolMode.rectangleMode) {
+          for (let j = 1; j < Math.abs(difX); j++) {
+            canvasMap[
+              secondClickCell.key + canvasWidth * i + j
+            ].group = groupId;
+          }
+        }
+      }
+    }
+    if (
+      toolMode.lineMode &&
+      Math.abs(difX) &&
+      Math.abs(difY) &&
+      (firstClickCell.x === 1 || firstClickCell.x === canvasWidth) &&
+      (secondClickCell.y === 1 || secondClickCell.y === canvasHeight)
+    ) {
+      for (let i = 0; i < Math.abs(difY); i++) {
+        for (let j = 1; j <= Math.abs(difX); j++) {
+          canvasMap[
+            eval(
+              `${secondClickCell.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
+            )
+          ].group = groupId;
+        }
       }
     }
   };
 
-  const drawLine = (secondClickCell, difX, difY) => {
-    console.log(canvasMap);
-    console.log(difX);
-    console.log(difY);
+  const drawLine = (firstClickCell, secondClickCell) => {
+    const difX = secondClickCell.x - firstClickCell.x;
+    const difY = secondClickCell.y - firstClickCell.y;
 
-    drawLineX(difX);
-    drawLineY(difY, secondClickCell);
+    if (difX) drawLineX(difX, firstClickCell);
+    if (difY) drawLineY(difY, difX, firstClickCell, secondClickCell);
   };
 
-  const drawRectangle = cell => {
-    console.log(cell);
-    console.log(canvasMap);
+  const drawRectangle = (firstClickCell, secondClickCell) => {
+    drawLine(firstClickCell, secondClickCell);
+    drawLine(secondClickCell, firstClickCell);
   };
 
   const draw = cell => {
-    if (secondClickCell) {
+    if (toolMode.bucketFillMode && cell.value !== "X") {
+      canvasMap.forEach(cellItem => {
+        if (cellItem.group === cell.group && !cellItem.value) {
+          cellItem.value = "O";
+        }
+      });
+      setState({ canvasMap });
+      return;
+    } else if (toolMode.bucketFillMode && cell.value === "X") {
+      toast.warn("You can't fill the line", {
+        containerId: "B"
+      });
+      return;
+    }
+
+    if (secondClickCell && !toolMode.bucketFillMode) {
       resetCanvas(cell);
       return;
     }
     if (!firstClickCell) {
-      console.log(cell);
       canvasMap[cell.key].value = "X";
       setState({ firstClickCell: cell });
     } else {
       const secondClickCell = canvasMap[cell.key];
       secondClickCell.value = "X";
-      const difX = secondClickCell.x - firstClickCell.x;
-      const difY = secondClickCell.y - firstClickCell.y;
 
-      if (lineMode) drawLine(secondClickCell, difX, difY);
-      if (rectangleMode) drawRectangle(cell, difX, difY);
+      if (toolMode.lineMode) drawLine(firstClickCell, secondClickCell);
+      if (toolMode.rectangleMode)
+        drawRectangle(firstClickCell, secondClickCell);
       setState({ canvasMap, secondClickCell });
     }
   };
 
+  const selectTool = tool => {
+    const toolMode = {
+      lineMode: false,
+      rectangleMode: false,
+      bucketFillMode: false
+    };
+
+    switch (tool) {
+      case "line": {
+        toolMode.lineMode = true;
+        break;
+      }
+      case "rectangle": {
+        toolMode.rectangleMode = true;
+        break;
+      }
+      case "bucketFill": {
+        toolMode.bucketFillMode = true;
+        break;
+      }
+      default:
+        toolMode.lineMode = true;
+    }
+    setState({ toolMode });
+  };
+
   return (
     <CanvasContainer>
-      <FormGroup>
-        <Input
-          type="number"
-          name="canvasWidth"
-          onChange={handleChange}
-          placeholder="Width"
-          required={true}
-        />
-        <Label for="name">Canvas Width</Label>
-      </FormGroup>
-      <FormGroup>
-        <Input
-          type="number"
-          onChange={handleChange}
-          name="canvasHeight"
-          placeholder="Height"
-          required
-        />
-        <Label for="name">Canvas Height</Label>
-      </FormGroup>
-      <button onClick={createCanvas}>Create Canvas</button>
+      <FormContainer>
+        <FormGroup>
+          <Input
+            type="number"
+            name="prevCanvasWidth"
+            onChange={handleChange}
+            placeholder="Width"
+            required={true}
+          />
+          <Label>Canvas Width</Label>
+        </FormGroup>
+        <FormGroup>
+          <Input
+            type="number"
+            onChange={handleChange}
+            name="canvasHeight"
+            placeholder="Height"
+            required
+          />
+          <Label>Canvas Height</Label>
+        </FormGroup>
+      </FormContainer>
+      <Button onClick={createCanvas}>Create Canvas</Button>
       {Boolean(canvasMap.length) && (
-        <CanvasMapContainer
-          canvasWidth={canvasWidth}
-          canvasHeight={canvasHeight}
-          cellWidth={cellWidth}
-        >
-          {canvasMap.map(canvasCell => (
-            <CanvasCell
-              key={canvasCell.key}
-              width={cellWidth}
-              height={cellHeight}
-              onClick={() => draw(canvasCell)}
-            >
-              {canvasCell.value}
-            </CanvasCell>
-          ))}
-        </CanvasMapContainer>
+        <>
+          <Toolbar selectTool={selectTool} toolMode={toolMode} />
+          <CanvasMapContainer
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+            cellWidth={cellWidth}
+          >
+            {canvasMap.map(canvasCell => (
+              <CanvasCell
+                key={canvasCell.key}
+                width={cellWidth}
+                height={cellHeight}
+                onClick={() => draw(canvasCell)}
+              >
+                {canvasCell.value}
+              </CanvasCell>
+            ))}
+          </CanvasMapContainer>
+        </>
       )}
+      <ToastContainer
+        enableMultiContainer
+        containerId={"B"}
+        position={toast.POSITION.TOP_RIGHT}
+      />
     </CanvasContainer>
   );
 }
+
+const FormContainer = styled.div`
+  margin-bottom: 20px;
+`;
 
 const FormGroup = styled.div`
   position: relative;
@@ -188,62 +270,8 @@ const FormGroup = styled.div`
   }
 `;
 
-const Input = styled.input`
-  font-family: inherit;
-  width: 100%;
-  border: 0;
-  border-bottom: 2px solid #9b9b9b;
-  outline: 0;
-  font-size: 1.3rem;
-  padding: 7px 0;
-  background: transparent;
-  transition: border-color 0.2s;
-
-  &:focus {
-    ~ label {
-      position: absolute;
-      top: 0;
-      display: block;
-      transition: 0.2s;
-      font-size: 1rem;
-      color: rgb(25, 118, 210);
-      font-weight: 700;
-      placeholder: 0;
-    }
-    padding-bottom: 6px;
-    font-weight: 700;
-    border-width: 3px;
-    border-image: linear-gradient(to right, rgb(25, 118, 210), #38ef7d);
-    border-image-slice: 1;
-  }
-
-  ::placeholder {
-    color: transparent;
-  }
-
-  :placeholder-shown ~ label {
-    font-size: 1.3rem;
-    cursor: text;
-    top: 20px;
-  }
-
-  &:required,
-  &:invalid {
-    box-shadow: none;
-  }
-`;
-
-const Label = styled.label`
-  position: absolute;
-  top: 0;
-  display: block;
-  transition: 0.2s;
-  font-size: 1rem;
-  color: #9b9b9b;
-`;
-
 const CanvasContainer = styled.div`
-  padding: 20px;
+  padding: 50px;
 `;
 
 const CanvasMapContainer = styled.div(({ canvasWidth, cellWidth }) => ({
@@ -256,7 +284,7 @@ const CanvasMapContainer = styled.div(({ canvasWidth, cellWidth }) => ({
 const CanvasCell = styled.button(({ width, height }) => ({
   width: `${width}px`,
   height: `${height}px`,
-  // border: 0,
   outline: "none",
+  border: 0,
   background: "#FFF"
 }));
