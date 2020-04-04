@@ -3,6 +3,7 @@ import styled from "styled-components";
 export const Button = styled.button`
   width: 140px;
   height: 45px;
+  font-family: "Roboto", sans-serif;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 2.5px;
@@ -17,8 +18,10 @@ export const Button = styled.button`
   outline: none;
 
   &:hover {
-    background-color: #2EE59D;
-    box-shadow: 0px 15px 20px rgba(46, 229, 157, 0.4);
+    background-color: ${({ color }) => color || "#2ee59d"};
+    box-shadow: 0px 15px 20px
+      ${({ color }) => color || "rgba(46, 229, 157, 0.4)"};
     color: #fff;
     transform: translateY(-7px);
+  }
 `;
