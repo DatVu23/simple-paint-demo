@@ -17,8 +17,8 @@ export default function Canvas() {
     canvasMap: [],
     emptyCanvasMap: [],
     errorMessage: "",
-    firstClickCell: null,
-    secondClickCell: null,
+    firstClickPoint: null,
+    secondClickPoint: null,
     size: 0,
     toolMode: {
       lineMode: true,
@@ -33,7 +33,7 @@ export default function Canvas() {
     canvasHeight,
     canvasMap,
     emptyCanvasMap,
-    firstClickCell,
+    firstClickPoint,
     toolMode
   } = state;
   const cellWidth = 40;
@@ -61,8 +61,8 @@ export default function Canvas() {
         canvasMap,
         canvasWidth,
         emptyCanvasMap: deepCopy(canvasMap),
-        firstClickCell: null,
-        secondClickCell: null
+        firstClickPoint: null,
+        secondClickPoint: null
       });
     } else {
       toast.error("The max size of canvas should be 30x30", {
@@ -71,22 +71,22 @@ export default function Canvas() {
     }
   };
 
-  const resetCanvas = cell => {
+  const resetCanvas = point => {
     const canvasMap = deepCopy(emptyCanvasMap);
-    canvasMap[cell.key].value = "X";
+    canvasMap[point.key].value = "X";
     setState({
       canvasMap: canvasMap,
-      firstClickCell: cell,
-      secondClickCell: null
+      firstClickPoint: point,
+      secondClickPoint: null
     });
   };
 
-  const drawLineX = (difX, cell) => {
+  const drawLineX = (difX, point) => {
     if (difX) {
       const operator = difX > 0 ? "+" : "-";
 
       for (let i = 1; i <= Math.abs(difX); i++) {
-        canvasMap[eval(`${cell.key} ${operator} ${i}`)].value = "X";
+        canvasMap[eval(`${point.key} ${operator} ${i}`)].value = "X";
       }
     }
   };
@@ -94,8 +94,8 @@ export default function Canvas() {
   const drawLineY = (
     difY,
     difX,
-    firstClickCell,
-    secondClickCell,
+    firstClickPoint,
+    secondClickPoint,
     compareX,
     compareY
   ) => {
@@ -106,15 +106,15 @@ export default function Canvas() {
 
     if (difY > 0) {
       for (let i = 1; i < Math.abs(difY); i++) {
-        canvasMap[secondClickCell.key - canvasWidth * i].value = "X";
+        canvasMap[secondClickPoint.key - canvasWidth * i].value = "X";
       }
     } else if (difY < 0) {
       for (let y = 1; y < Math.abs(difY); y++) {
-        canvasMap[secondClickCell.key + canvasWidth * y].value = "X";
+        canvasMap[secondClickPoint.key + canvasWidth * y].value = "X";
         if (toolMode.rectangleMode) {
           for (let x = 1; x < Math.abs(difX); x++) {
             canvasMap[
-              secondClickCell.key + canvasWidth * y + x
+              secondClickPoint.key + canvasWidth * y + x
             ].group = groupId;
           }
         }
@@ -122,15 +122,15 @@ export default function Canvas() {
     }
 
     const isFirstClickCellAtTheBorder =
-      firstClickCell.x === 1 || firstClickCell.x === canvasWidth;
+      firstClickPoint.x === 1 || firstClickPoint.x === canvasWidth;
     const isSecondClickCellAtTheBorder =
-      secondClickCell.y === 1 || secondClickCell.y === canvasHeight;
+      secondClickPoint.y === 1 || secondClickPoint.y === canvasHeight;
     const isFirstClickCellClosed =
-      canvasMap[eval(`${firstClickCell.key} ${compareX || operatorX} 1`)]
+      canvasMap[eval(`${firstClickPoint.key} ${compareX || operatorX} 1`)]
         ?.value === "X";
     const isSecondClickCellClosed =
       canvasMap[
-        eval(`${secondClickCell.key} ${compareY || operatorY} ${canvasWidth}`)
+        eval(`${secondClickPoint.key} ${compareY || operatorY} ${canvasWidth}`)
       ]?.value === "X";
 
     if (
@@ -145,7 +145,7 @@ export default function Canvas() {
           const currentCell =
             canvasMap[
               eval(
-                `${secondClickCell.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
+                `${secondClickPoint.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
               )
             ];
           if (currentCell.group) currentCell.group = mixedGroupId;
@@ -155,68 +155,68 @@ export default function Canvas() {
     }
   };
 
-  const drawLine = (firstClickCell, secondClickCell, compareX, compareY) => {
-    const difX = secondClickCell.x - firstClickCell.x;
-    const difY = secondClickCell.y - firstClickCell.y;
+  const drawLine = (firstClickPoint, secondClickPoint, compareX, compareY) => {
+    const difX = secondClickPoint.x - firstClickPoint.x;
+    const difY = secondClickPoint.y - firstClickPoint.y;
 
-    if (difX) drawLineX(difX, firstClickCell);
+    if (difX) drawLineX(difX, firstClickPoint);
     if (difY)
       drawLineY(
         difY,
         difX,
-        firstClickCell,
-        secondClickCell,
+        firstClickPoint,
+        secondClickPoint,
         compareX,
         compareY
       );
   };
 
-  const drawRectangle = (firstClickCell, secondClickCell) => {
-    const compareX = firstClickCell.x - secondClickCell.x > 0 ? "-" : "+";
-    const compareY = firstClickCell.y - secondClickCell.y > 0 ? "-" : "+";
+  const drawRectangle = (firstClickPoint, secondClickPoint) => {
+    const compareX = firstClickPoint.x - secondClickPoint.x > 0 ? "-" : "+";
+    const compareY = firstClickPoint.y - secondClickPoint.y > 0 ? "-" : "+";
 
-    drawLine(firstClickCell, secondClickCell, compareX, compareY);
-    drawLine(secondClickCell, firstClickCell, compareX, compareY);
+    drawLine(firstClickPoint, secondClickPoint, compareX, compareY);
+    drawLine(secondClickPoint, firstClickPoint, compareX, compareY);
   };
 
-  const fill = cell => {
+  const fill = point => {
     canvasMap.forEach(cellItem => {
-      if (cellItem.group === cell.group && !cellItem.value) {
+      if (cellItem.group === point.group && !cellItem.value) {
         cellItem.value = "O";
       }
     });
     setState({ canvasMap });
   };
 
-  const draw = cell => {
+  const draw = point => {
     if (toolMode.bucketFillMode) {
-      if (cell.value !== "X") fill(cell);
-      else if (cell.value === "X")
+      if (point.value !== "X") fill(point);
+      else if (point.value === "X")
         toast.warn("You can't fill the line", {
           containerId: "B"
         });
       return;
     }
 
-    // if (secondClickCell && !toolMode.bucketFillMode) {
-    //   resetCanvas(cell);
+    // if (secondClickPoint && !toolMode.bucketFillMode) {
+    //   resetCanvas(point);
     //   return;
     // }
 
-    if (!firstClickCell) {
-      canvasMap[cell.key].value = "X";
-      setState({ firstClickCell: cell });
+    if (!firstClickPoint) {
+      canvasMap[point.key].value = "X";
+      setState({ firstClickPoint: point });
     } else {
-      const secondClickCell = canvasMap[cell.key];
-      secondClickCell.value = "X";
+      const secondClickPoint = canvasMap[point.key];
+      secondClickPoint.value = "X";
 
-      if (toolMode.lineMode) drawLine(firstClickCell, secondClickCell);
+      if (toolMode.lineMode) drawLine(firstClickPoint, secondClickPoint);
       if (toolMode.rectangleMode)
-        drawRectangle(firstClickCell, secondClickCell);
+        drawRectangle(firstClickPoint, secondClickPoint);
       setState({
         canvasMap,
-        firstClickCell: null,
-        secondClickCell: null
+        firstClickPoint: null,
+        secondClickPoint: null
       });
     }
   };
