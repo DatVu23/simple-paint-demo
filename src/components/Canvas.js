@@ -34,7 +34,6 @@ export default function Canvas() {
     canvasMap,
     emptyCanvasMap,
     firstClickCell,
-    secondClickCell,
     toolMode
   } = state;
   const cellWidth = 40;
@@ -50,11 +49,13 @@ export default function Canvas() {
       const canvasWidth = prevCanvasWidth;
       const size = canvasWidth * canvasHeight;
       const canvasMap = [];
+
       for (let i = 1; i <= size; i++) {
         const x = i > canvasWidth ? i % canvasWidth || canvasWidth : i;
         const y = Math.ceil(i / canvasWidth) || 1;
         canvasMap.push({ x, y, key: i - 1, group: 0 });
       }
+
       setState({
         size,
         canvasMap,
@@ -90,8 +91,16 @@ export default function Canvas() {
     }
   };
 
-  const drawLineY = (difY, difX, firstClickCell, secondClickCell) => {
+  const drawLineY = (
+    difY,
+    difX,
+    firstClickCell,
+    secondClickCell,
+    compareX,
+    compareY
+  ) => {
     const groupId = uuidv4();
+    const mixedGroupId = uuidv4();
     const operatorY = difY > 0 ? "-" : "+";
     const operatorX = difX > 0 ? "-" : "+";
 
@@ -100,69 +109,100 @@ export default function Canvas() {
         canvasMap[secondClickCell.key - canvasWidth * i].value = "X";
       }
     } else if (difY < 0) {
-      for (let i = 1; i < Math.abs(difY); i++) {
-        canvasMap[secondClickCell.key + canvasWidth * i].value = "X";
+      for (let y = 1; y < Math.abs(difY); y++) {
+        canvasMap[secondClickCell.key + canvasWidth * y].value = "X";
         if (toolMode.rectangleMode) {
-          for (let j = 1; j < Math.abs(difX); j++) {
+          for (let x = 1; x < Math.abs(difX); x++) {
             canvasMap[
-              secondClickCell.key + canvasWidth * i + j
+              secondClickCell.key + canvasWidth * y + x
             ].group = groupId;
           }
         }
       }
     }
+
+    const isFirstClickCellAtTheBorder =
+      firstClickCell.x === 1 || firstClickCell.x === canvasWidth;
+    const isSecondClickCellAtTheBorder =
+      secondClickCell.y === 1 || secondClickCell.y === canvasHeight;
+    const isFirstClickCellClosed =
+      canvasMap[eval(`${firstClickCell.key} ${compareX || operatorX} 1`)]
+        ?.value === "X";
+    const isSecondClickCellClosed =
+      canvasMap[
+        eval(`${secondClickCell.key} ${compareY || operatorY} ${canvasWidth}`)
+      ]?.value === "X";
+
     if (
       toolMode.lineMode &&
       Math.abs(difX) &&
       Math.abs(difY) &&
-      (firstClickCell.x === 1 || firstClickCell.x === canvasWidth) &&
-      (secondClickCell.y === 1 || secondClickCell.y === canvasHeight)
+      (isFirstClickCellAtTheBorder || isFirstClickCellClosed) &&
+      (isSecondClickCellAtTheBorder || isSecondClickCellClosed)
     ) {
       for (let i = 0; i < Math.abs(difY); i++) {
         for (let j = 1; j <= Math.abs(difX); j++) {
-          canvasMap[
-            eval(
-              `${secondClickCell.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
-            )
-          ].group = groupId;
+          const currentCell =
+            canvasMap[
+              eval(
+                `${secondClickCell.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
+              )
+            ];
+          if (currentCell.group) currentCell.group = mixedGroupId;
+          else currentCell.group = groupId;
         }
       }
     }
   };
 
-  const drawLine = (firstClickCell, secondClickCell) => {
+  const drawLine = (firstClickCell, secondClickCell, compareX, compareY) => {
     const difX = secondClickCell.x - firstClickCell.x;
     const difY = secondClickCell.y - firstClickCell.y;
 
     if (difX) drawLineX(difX, firstClickCell);
-    if (difY) drawLineY(difY, difX, firstClickCell, secondClickCell);
+    if (difY)
+      drawLineY(
+        difY,
+        difX,
+        firstClickCell,
+        secondClickCell,
+        compareX,
+        compareY
+      );
   };
 
   const drawRectangle = (firstClickCell, secondClickCell) => {
-    drawLine(firstClickCell, secondClickCell);
-    drawLine(secondClickCell, firstClickCell);
+    const compareX = firstClickCell.x - secondClickCell.x > 0 ? "-" : "+";
+    const compareY = firstClickCell.y - secondClickCell.y > 0 ? "-" : "+";
+
+    drawLine(firstClickCell, secondClickCell, compareX, compareY);
+    drawLine(secondClickCell, firstClickCell, compareX, compareY);
+  };
+
+  const fill = cell => {
+    canvasMap.forEach(cellItem => {
+      if (cellItem.group === cell.group && !cellItem.value) {
+        cellItem.value = "O";
+      }
+    });
+    setState({ canvasMap });
   };
 
   const draw = cell => {
-    if (toolMode.bucketFillMode && cell.value !== "X") {
-      canvasMap.forEach(cellItem => {
-        if (cellItem.group === cell.group && !cellItem.value) {
-          cellItem.value = "O";
-        }
-      });
-      setState({ canvasMap });
-      return;
-    } else if (toolMode.bucketFillMode && cell.value === "X") {
-      toast.warn("You can't fill the line", {
-        containerId: "B"
-      });
+    if (toolMode.bucketFillMode) {
+      if (cell.value !== "X") fill(cell);
+      else if (cell.value === "X")
+        toast.warn("You can't fill the line", {
+          containerId: "B"
+        });
       return;
     }
 
-    if (secondClickCell && !toolMode.bucketFillMode) {
-      resetCanvas(cell);
-      return;
-    }
+    // if (secondClickCell && !toolMode.bucketFillMode) {
+    //   resetCanvas(cell);
+    //   return;
+    // }
+
     if (!firstClickCell) {
       canvasMap[cell.key].value = "X";
       setState({ firstClickCell: cell });
@@ -173,7 +213,11 @@ export default function Canvas() {
       if (toolMode.lineMode) drawLine(firstClickCell, secondClickCell);
       if (toolMode.rectangleMode)
         drawRectangle(firstClickCell, secondClickCell);
-      setState({ canvasMap, secondClickCell });
+      setState({
+        canvasMap,
+        firstClickCell: null,
+        secondClickCell: null
+      });
     }
   };
 
@@ -227,7 +271,9 @@ export default function Canvas() {
           <Label>Canvas Height</Label>
         </FormGroup>
       </FormContainer>
-      <Button onClick={createCanvas}>Create Canvas</Button>
+      <Button onClick={createCanvas} color="#2ee59d">
+        Create Canvas
+      </Button>
       {Boolean(canvasMap.length) && (
         <>
           <Toolbar selectTool={selectTool} toolMode={toolMode} />
@@ -286,5 +332,6 @@ const CanvasCell = styled.button(({ width, height }) => ({
   height: `${height}px`,
   outline: "none",
   border: 0,
+  cursor: "pointer",
   background: "#FFF"
 }));
