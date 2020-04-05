@@ -154,14 +154,14 @@ export default function Canvas() {
     ) {
       for (let i = 0; i < Math.abs(difY); i++) {
         for (let j = 1; j <= Math.abs(difX); j++) {
-          const currentCell =
+          const currentPoint =
             canvasMap[
               eval(
                 `${secondClickPoint.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
               )
             ];
-          if (currentCell.group) currentCell.group = mixedGroupId;
-          else currentCell.group = groupId;
+          if (currentPoint.group) currentPoint.group = mixedGroupId;
+          else currentPoint.group = groupId;
         }
       }
     }
