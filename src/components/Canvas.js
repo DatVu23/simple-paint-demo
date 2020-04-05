@@ -133,14 +133,14 @@ export default function Canvas() {
       }
     }
 
-    const isFirstClickCellAtTheBorder =
+    const isFirstClickPointAtTheBorder =
       firstClickPoint.x === 1 || firstClickPoint.x === canvasWidth;
-    const isSecondClickCellAtTheBorder =
+    const isSecondClickPointAtTheBorder =
       secondClickPoint.y === 1 || secondClickPoint.y === canvasHeight;
-    const isFirstClickCellClosed =
+    const isFirstClickPointClosed =
       canvasMap[eval(`${firstClickPoint.key} ${compareX || operatorX} 1`)]
         ?.value === "X";
-    const isSecondClickCellClosed =
+    const isSecondClickPointClosed =
       canvasMap[
         eval(`${secondClickPoint.key} ${compareY || operatorY} ${canvasWidth}`)
       ]?.value === "X";
@@ -149,8 +149,8 @@ export default function Canvas() {
       toolMode.lineMode &&
       Math.abs(difX) &&
       Math.abs(difY) &&
-      (isFirstClickCellAtTheBorder || isFirstClickCellClosed) &&
-      (isSecondClickCellAtTheBorder || isSecondClickCellClosed)
+      (isFirstClickPointAtTheBorder || isFirstClickPointClosed) &&
+      (isSecondClickPointAtTheBorder || isSecondClickPointClosed)
     ) {
       for (let i = 0; i < Math.abs(difY); i++) {
         for (let j = 1; j <= Math.abs(difX); j++) {
