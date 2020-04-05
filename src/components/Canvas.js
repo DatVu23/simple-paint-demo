@@ -139,29 +139,43 @@ export default function Canvas() {
       secondClickPoint.y === 1 || secondClickPoint.y === canvasHeight;
     const isFirstClickPointClosed =
       canvasMap[eval(`${firstClickPoint.key} ${compareX || operatorX} 1`)]
-        ?.value === "X";
+        .value === "X";
     const isSecondClickPointClosed =
       canvasMap[
         eval(`${secondClickPoint.key} ${compareY || operatorY} ${canvasWidth}`)
-      ]?.value === "X";
+      ].value === "X";
 
-    if (
-      toolMode.lineMode &&
-      Math.abs(difX) &&
-      Math.abs(difY) &&
-      (isFirstClickPointAtTheBorder || isFirstClickPointClosed) &&
-      (isSecondClickPointAtTheBorder || isSecondClickPointClosed)
-    ) {
-      for (let i = 0; i < Math.abs(difY); i++) {
-        for (let j = 1; j <= Math.abs(difX); j++) {
-          const currentPoint =
-            canvasMap[
-              eval(
-                `${secondClickPoint.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
-              )
-            ];
-          if (currentPoint.group) currentPoint.group = mixedGroupId;
-          else currentPoint.group = groupId;
+    if (toolMode.lineMode) {
+      if (
+        Math.abs(difX) &&
+        Math.abs(difY) &&
+        (isFirstClickPointAtTheBorder || isFirstClickPointClosed) &&
+        (isSecondClickPointAtTheBorder || isSecondClickPointClosed)
+      ) {
+        for (let i = 0; i < Math.abs(difY); i++) {
+          for (let j = 1; j <= Math.abs(difX); j++) {
+            const currentPoint =
+              canvasMap[
+                eval(
+                  `${secondClickPoint.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
+                )
+              ];
+            if (currentPoint.group) currentPoint.group = mixedGroupId;
+            else currentPoint.group = groupId;
+          }
+        }
+      } else if (Math.abs(difY) + 1 === canvasHeight) {
+        for (let i = 0; i <= Math.abs(difY); i++) {
+          for (let j = 0; j <= canvasHeight - secondClickPoint.x; j++) {
+            const currentPoint =
+              canvasMap[
+                eval(
+                  `${secondClickPoint.key} ${operatorY} ${canvasWidth} * ${i} ${operatorX} ${j}`
+                )
+              ];
+            if (currentPoint.group) currentPoint.group = mixedGroupId;
+            else currentPoint.group = groupId;
+          }
         }
       }
     }
