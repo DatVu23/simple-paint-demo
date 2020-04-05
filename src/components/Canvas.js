@@ -81,12 +81,24 @@ export default function Canvas() {
     });
   };
 
-  const drawLineX = (difX, point) => {
+  const drawLineX = (difX, point, secondPoint) => {
     if (difX) {
+      const groupId = uuidv4();
+      const mixedGroupId = uuidv4();
       const operator = difX > 0 ? "+" : "-";
 
       for (let i = 1; i <= Math.abs(difX); i++) {
         canvasMap[eval(`${point.key} ${operator} ${i}`)].value = "X";
+      }
+
+      if (difX + 1 === canvasWidth) {
+        const lastPoint =
+          secondPoint.x - point.x > 0 ? secondPoint.key : point.key;
+        for (let i = lastPoint; i < canvasMap.length; i++) {
+          const currentPoint = canvasMap[i];
+          if (currentPoint.group) currentPoint.group = mixedGroupId;
+          else currentPoint.group = groupId;
+        }
       }
     }
   };
@@ -159,7 +171,7 @@ export default function Canvas() {
     const difX = secondClickPoint.x - firstClickPoint.x;
     const difY = secondClickPoint.y - firstClickPoint.y;
 
-    if (difX) drawLineX(difX, firstClickPoint);
+    if (difX) drawLineX(difX, firstClickPoint, secondClickPoint);
     if (difY)
       drawLineY(
         difY,
